@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Juego de Triqui</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+            transition: background-color 0.5s;
+        }
+        .container {
+            display: flex;
+            gap: 20px;
+        }
+        .board {
+            display: grid;
+            grid-template-columns: repeat(3, 100px);
+            grid-template-rows: repeat(3, 100px);
+            gap: 5px;
+        }
+        .cell {
+            width: 100px;
+            height: 100px;
+            background-color: #fff;
+            border: 2px solid #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 48px;
+            cursor: pointer;
+        }
+        .cell:hover {
+            background-color: #e0e0e0;
+        }
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .difficulty-btn {
+            padding: 10px;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .noobsito {
+            background-color: white;
+            color: black;
+        }
+        .facilito {
+            background-color: green;
+            color: white;
+        }
+        .moderado {
+            background-color: yellow;
+            color: black;
+        }
+        .traijard {
+            background-color: red;
+            color: black;
+        }
+        .diosdeltriki {
+            background-color: black;
+            color: white;
+        }
+        .mode-btn {
+            padding: 10px;
+            margin-bottom: 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        .status {
+            margin-top: 20px;
+            font-size: 18px;
+        }
+        #fire-gif {
+            display: none;
+            width: 200px;
+            height: 200px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <button class="mode-btn" id="pvp">Jugador vs Jugador</button>
+            <button class="mode-btn" id="pvc">Jugador vs Computadora</button>
+            <div class="difficulty" id="difficulty-panel" style="display: none;">
+                <button class="difficulty-btn noobsito" data-level="1">Noobsito</button>
+                <button class="difficulty-btn facilito" data-level="2">Facilito</button>
+                <button class="difficulty-btn moderado" data-level="3">Moderado</button>
+                <button class="difficulty-btn traijard" data-level="4">Trai jard</button>
+                <button class="difficulty-btn diosdeltriki" data-level="5">dios del triki</button>
+            </div>
+        </div>
+        <div>
+            <div class="board" id="board">
+                <div class="cell" data-index="0"></div>
+                <div class="cell" data-index="1"></div>
+                <div class="cell" data-index="2"></div>
+                <div class="cell" data-index="3"></div>
+                <div class="cell" data-index="4"></div>
+                <div class="cell" data-index="5"></div>
+                <div class="cell" data-index="6"></div>
+                <div class="cell" data-index="7"></div>
+                <div class="cell" data-index="8"></div>
+            </div>
+            <div class="status" id="status">Selecciona un modo de juego</div>
+            <img id="fire-gif" src="https://media.giphy.com/media/3o7TKz9bX9v9Kz9z9/giphy.gif" alt="Fuego animado">
+        </div>
+    </div>
+
+    <script>
+        const board = document.getElementById('board');
+        const cells = Array.from(document.querySelectorAll('.cell'));
+        const status = document.getElementById('status');
+        const pvpBtn = document.getElementById('pvp');
+        const pvcBtn = document.getElementById('pvc');
+        const difficultyPanel = document.getElementById('difficulty-panel');
+        const difficultyBtns = Array.from(document.querySelectorAll('.difficulty-btn'));
+        const fireGif = document.getElementById('fire-gif');
+
+        let currentPlayer = 'X';
+        let gameActive = false;
+        let gameMode = null; // 'pvp' or 'pvc'
+        let difficulty = 1;
+        let boardState = Array(9).fill(null);
+
+        // Winning combinations
+        const winningCombos = [
+            [0, 1, 2], [3, 4, 5], [6, 7, 8],
+            [0, 3, 6], [1, 4, 7], [2, 5, 8],
+            [0, 4, 8], [2, 4, 6]
+        ];
+
+        // Check for winner
+        function checkWinner() {
+            for (let combo of winningCombos) {
+                const [a, b, c] = combo;
+                if (boardState[a] && boardState[a] === boardState[b] && boardState[a] === boardState[c]) {
+                    return boardState[a];
+                }
+            }
+            return boardState.includes(null) ? null : 'Tie';
+        }
+
+        // Handle cell click
+        function handleCellClick(e) {
+            if (!gameActive) return;
+            const index = e.target.dataset.index;
+            if (boardState[index] || checkWinner()) return;
+
+            boardState[index] = currentPlayer;
+            e.target.textContent = currentPlayer;
+
+            const winner = checkWinner();
+            if (winner) {
+                gameActive = false;
+                status.textContent = winner === 'Tie' ? 'Empate!' : `¡${winner} gana!`;
+                return;
+            }
+
+            currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+            status.textContent = `Turno de ${currentPlayer}`;
+
+            if (gameMode === 'pvc' && currentPlayer === 'O') {
+                setTimeout(computerMove, 500);
+            }
+        }
+
+        // Computer move based on difficulty
+        function computerMove() {
+            let move;
+            switch (difficulty) {
+                case 1: // Random
+                    move = getRandomMove();
+                    break;
+                case 2: // Easy: Avoid losing
+                    move = getBestMove(1);
+                    break;
+                case 3: // Medium
+                    move = getBestMove(2);
+                    break;
+                case 4: // Hard
+                    move = getBestMove(3);
+                    break;
+                case 5: // Impossible
+                    move = minimax(boardState, 'O').index;
+                    break;
+            }
+            if (move !== undefined) {
+                boardState[move] = 'O';
+                cells[move].textContent = 'O';
+
+                const winner = checkWinner();
+                if (winner) {
+                    gameActive = false;
+                    status.textContent = winner === 'Tie' ? 'Empate!' : `¡${winner} gana!`;
+                    return;
+                }
+
+                currentPlayer = 'X';
+                status.textContent = `Turno de ${currentPlayer}`;
+            }
+        }
+
+        // Get random move
+        function getRandomMove() {
+            const available = boardState.map((val, idx) => val === null ? idx : null).filter(val => val !== null);
+            return available[Math.floor(Math.random() * available.length)];
+        }
+
+        // Simple best move (depth limited)
+        function getBestMove(depth) {
+            let bestScore = -Infinity;
+            let move;
+            for (let i = 0; i < 9; i++) {
+                if (boardState[i] === null) {
+                    boardState[i] = 'O';
+                    let score = minimax(boardState, 'X', depth);
+                    boardState[i] = null;
+                    if (score > bestScore) {
+                        bestScore = score;
+                        move = i;
+                    }
+                }
+            }
+            return move;
+        }
+
+        // Minimax algorithm
+        function minimax(board, player, depth = 9) {
+            const winner = checkWinner();
+            if (winner === 'O') return { score: 10 };
+            if (winner === 'X') return { score: -10 };
+            if (winner === 'Tie' || depth === 0) return { score: 0 };
+
+            let bestScore = player === 'O' ? -Infinity : Infinity;
+            let bestMove;
+
+            for (let i = 0; i < 9; i++) {
+                if (board[i] === null) {
+                    board[i] = player;
+                    let score = minimax(board, player === 'O' ? 'X' : 'O', depth - 1).score;
+                    board[i] = null;
+                    if (player === 'O') {
+                        if (score > bestScore) {
+                            bestScore = score;
+                            bestMove = i;
+                        }
+                    } else {
+                        if (score < bestScore) {
+                            bestScore = score;
+                            bestMove = i;
+                        }
+                    }
+                }
+            }
+            return { score: bestScore, index: bestMove };
+        }
+
+        // Reset game
+        function resetGame() {
+            boardState = Array(9).fill(null);
+            cells.forEach(cell => cell.textContent = '');
+            currentPlayer = 'X';
+            gameActive = true;
+            status.textContent = `Turno de ${currentPlayer}`;
+        }
+
+        // Mode selection
+        pvpBtn.addEventListener('click', () => {
+            gameMode = 'pvp';
+            difficultyPanel.style.display = 'none';
+            fireGif.style.display = 'none';
+            document.body.style.backgroundColor = '#f0f0f0';
+            resetGame();
+        });
+
+        pvcBtn.addEventListener('click', () => {
+            gameMode = 'pvc';
+            difficultyPanel.style.display = 'block';
+            resetGame();
+        });
+
+        // Difficulty selection
+        difficultyBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                difficulty = parseInt(e.target.dataset.level);
+                resetGame();
+                if (difficulty === 5) {
+                    document.body.style.backgroundColor = '#BA0F0F';
+                    fireGif.style.display = 'block';
+                } else {
+                    document.body.style.backgroundColor = '#f0f0f0';
+                    fireGif.style.display = 'none';
+                }
+            });
+        });
+
+        // Add event listeners to cells
+        cells.forEach(cell => cell.addEventListener('click', handleCellClick));
+    </script>
+</body>
+</html>
